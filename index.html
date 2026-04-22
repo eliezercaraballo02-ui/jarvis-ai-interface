@@ -267,25 +267,29 @@
       scene.add(light);
 
       let mixer, animations = {};
-      const loader = new GLTFLoader();
-   loader.load(
+    const loader = new GLTFLoader();
+
+loader.load(
   "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
+  (gltf) => {
+    const model = gltf.scene;
+    model.scale.set(0.55, 0.5, 0.5);
+    model.position.y = -1;
+    scene.add(model);
 
+    mixer = new THREE.AnimationMixer(model);
+    gltf.animations.forEach((clip) => {
+      animations[clip.name] = mixer.clipAction(clip);
+    });
 
-      
-        (gltf) => {
-          const model = gltf.scene;
-          model.scale.set(0.55, 0.5, 0.5);
-          model.position.y = -1;
-          scene.add(model);
-
-          mixer = new THREE.AnimationMixer(model);
-          gltf.animations.forEach((clip) => {
-            animations[clip.name] = mixer.clipAction(clip);
-          });
-          if(animations["Idle"]) animations["Idle"].play();
-        }
-      );
+    if (animations["Idle"]) animations["Idle"].play();
+  },
+  undefined,
+  (error) => {
+    console.error("Error cargando modelo:", error);
+  }
+);
+;
 
       camera.position.z = 4;
       const clock = new THREE.Clock();
