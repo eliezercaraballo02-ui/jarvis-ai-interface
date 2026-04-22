@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Robot IA Real - Jarvis Local</title>
+
+    <style>
+      body {
+        margin: 0;
+        background-color: black;
+        overflow: hidden;
+        font-family: "Segoe UI", sans-serif;
+      }
+
+      #chat-ui {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 600px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 100;
+      }
+
+      #display-text {
+        color: #00ffff;
+        text-align: center;
+        font-size: 1.1rem;
+        text-shadow: 0 0 15px #00ffff;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        max-height: 150px;
+        overflow-y: auto;
+      }
+
+      .input-area {
+        display: flex;
+        gap: 10px;
+      }
+
+      input {
+        flex: 1;
+        background: rgba(0, 30, 30, 0.8);
+        border: 1px solid #00ffff;
+        border-radius: 5px;
+        color: #00ffff;
+        padding: 12px;
+        outline: none;
+      }
+
+      button {
+        background: #00ffff;
+        border: none;
+        border-radius: 5px;
+        padding: 0 15px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="chat-ui">
+      <div id="display-text">Sistema Jarvis activo. Esperando comandos...</div>
+
+      <div class="input-area">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Escribe o habla..."
+          autocomplete="off"
+        />
+        <button id="sendBtn">ENVIAR</button>
+        <button onclick="escuchar()">🎤</button>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.136.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader": "https://unpkg.com/three@0.136.0/examples/jsm/loaders/GLTFLoader.js"
+        }
+      }
+    </script>
+
+ <script type="module">
+      import * as THREE from "three";
+      import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+      import { baseDeDatos } from "./conocimiento.js";
+      import { JarvisHibrido } from "./ia.js"; // Importamos la IA
+
+      // Inicializamos el motor de la IA
+      const jarvisIA = new JarvisHibrido();
+
+      // ===================== MEMORIA =====================
+      let memoria = JSON.parse(localStorage.getItem("memoriaJarvis")) || {
+        nombre: "",
+        contexto: [],
+      };
+
+      function guardarMemoria() {
+        localStorage.setItem("memoriaJarvis", JSON.stringify(memoria));
+      }
+
+      // ===================== DETECTAR NOMBRE =====================
+      function extraerNombre(texto) {
+        const patrones = ["soy ", "me llamo ", "mi nombre es ", "yo soy "];
+
+        for (let patron of patrones) {
+          if (texto.includes(patron)) {
+            let nombre = texto.split(patron)[1].split(" ")[0];
+            nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+            memoria.nombre = nombre;
+            guardarMemoria();
+            return nombre;
+          }
+        }
+        return null;
+      }
+
+      // ===================== VOZ =====================
+      const hablar = (texto, animacionNombre = "Talking") => {
+        window.speechSynthesis.cancel();
+
+        const msg = new SpeechSynthesisUtterance(texto);
+        msg.lang = "es-ES";
+        msg.pitch = 0.9;
+        msg.rate = 1.05;
+
+        document.getElementById("display-text").innerText = texto;
+
+        if (mixer && animations[animacionNombre]) {
+          mixer.stopAllAction();
+          animations[animacionNombre].play();
+        }
+
+        msg.onend = () => {
+          if (mixer && animations["Idle"] && animacionNombre !== "Death") {
+            mixer.stopAllAction();
+            animations["Idle"].play();
+          }
+        };
+
+        window.speechSynthesis.speak(msg);
+      };
+
+      // ===================== RECONOCIMIENTO VOZ =====================
+      let reconocimiento;
+
+      function iniciarReconocimiento() {
+        const SpeechRecognition =
+          window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+          alert("Tu navegador no soporta voz.");
+          return;
+        }
+
+        reconocimiento = new SpeechRecognition();
+        reconocimiento.lang = "es-ES";
+        reconocimiento.continuous = false;
+        reconocimiento.interimResults = false;
+
+        reconocimiento.onstart = () => {
+          hablar("Escuchando...", "Idle");
+        };
+
+        reconocimiento.onresult = (event) => {
+          const texto = event.results[0][0].transcript;
+          document.getElementById("userInput").value = texto;
+          procesarMensaje();
+        };
+
+        reconocimiento.onerror = (event) => {
+          hablar("No pude escucharte.", "No");
+        };
+
+        reconocimiento.start();
+      }
+
+      window.escuchar = iniciarReconocimiento;
+
+      // ===================== PROCESAR MENSAJE (HÍBRIDO) =====================
+      const procesarMensaje = async () => {
+        const input = document.getElementById("userInput");
+        const textoOriginal = input.value.trim();
+        const texto = textoOriginal.toLowerCase();
+
+        if (!texto) return;
+        input.value = "";
+
+        // 1. Verificar si el usuario se está presentando
+        const nombre = extraerNombre(texto);
+        if (nombre) {
+          hablar(`Hola ${nombre}. Es un placer tenerte aquí. ¿En qué puedo ayudarte?`, "Wave");
+          return;
+        }
+
+        let respuesta = "";
+        let animacion = "Talking";
+
+        // 2. Buscar en Conocimiento.js (Base de datos local)
+        for (let item of baseDeDatos) {
+          if (item.claves.some((clave) => texto.includes(clave))) {
+            respuesta = (typeof item.respuesta === "function") 
+              ? item.respuesta(memoria.nombre || "usuario") 
+              : item.respuesta;
+            animacion = item.animacion || "Talking";
+            break;
+          }
+        }
+
+        // 3. Si no hay respuesta local, consultar a la IA en la nube
+        if (!respuesta) {
+          document.getElementById("display-text").innerText = "Jarvis está pensando...";
+          
+          try {
+            const resultadoIA = await jarvisIA.hablarConJarvis(textoOriginal);
+            respuesta = resultadoIA.respuesta;
+            animacion = (resultadoIA.fuente === "IA NUBE") ? "Talking" : "No";
+          } catch (e) {
+            respuesta = "Se ha producido un error en mi núcleo de procesamiento.";
+            animacion = "No";
+          }
+        }
+
+        hablar(respuesta, animacion);
+      };
+
+      // ===================== CONTROLES (BOTONES Y TECLADO) =====================
+      document.getElementById("sendBtn").onclick = procesarMensaje;
+      
+      const inputElement = document.getElementById("userInput");
+      inputElement.onkeypress = (e) => {
+        if (e.key === "Enter") procesarMensaje();
+      };
+
+      window.addEventListener('keydown', (e) => {
+        if (document.activeElement === inputElement) return;
+        if (!mixer) return;
+
+        if (e.key === '1') { mixer.stopAllAction(); animations['Wave'].play(); }
+        if (e.key === '2') { mixer.stopAllAction(); animations['Dance'].play(); }
+        if (e.key === '3') { mixer.stopAllAction(); animations['Walking'].play(); }
+        if (e.key === '4') { mixer.stopAllAction(); animations['Death'].play(); }
+      });
+
+      // ===================== THREE.JS =====================
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 1));
+      const light = new THREE.PointLight(0x00ffff, 2);
+      light.position.set(5, 5, 5);
+      scene.add(light);
+
+      let mixer, animations = {};
+      const loader = new GLTFLoader();
+
+      loader.load(
+        "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
+        (gltf) => {
+          const model = gltf.scene;
+          model.scale.set(0.55, 0.5, 0.5);
+          model.position.y = -1;
+          scene.add(model);
+
+          mixer = new THREE.AnimationMixer(model);
+          gltf.animations.forEach((clip) => {
+            animations[clip.name] = mixer.clipAction(clip);
+          });
+          if(animations["Idle"]) animations["Idle"].play();
+        }
+      );
+
+      camera.position.z = 4;
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        if (mixer) mixer.update(clock.getDelta());
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
