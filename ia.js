@@ -2,34 +2,33 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export class JarvisHibrido {
     constructor() {
-        // PEGA AQUÍ TU API KEY DE GOOGLE
+        // Sustituye con tu clave de Google AI Studio
         this.apiKey = "AIzaSyDnbYAoTJ1n152b7_rIpb7TFI1WmkFlTDA"; 
         this.genAI = new GoogleGenerativeAI(this.apiKey);
         this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         this.comandosLocales = {
             "saluda": "Sistemas en línea. Hola, soy Jarvis.",
-            "baila": "Iniciando protocolos de baile. ¡Observe!",
+            "baila": "Protocolo de baile activado.",
             "quien eres": "Soy una interfaz de IA híbrida potenciada por Google Gemini.",
-            "proyectos": "He desarrollado sistemas SQL, simuladores y esta interfaz 3D."
+            "proyectos": "He trabajado en sistemas SQL y esta interfaz 3D."
         };
     }
 
     async hablarConJarvis(textoUsuario) {
         const promptLimpio = textoUsuario.toLowerCase().trim();
 
-        // 1. Lógica Local (Instantánea)
+        // 1. Lógica Local
         for (let comando in this.comandosLocales) {
             if (promptLimpio.includes(comando)) {
                 return { fuente: "LOCAL", respuesta: this.comandosLocales[comando] };
             }
         }
 
-        // 2. Lógica de Nube con Google Gemini
+        // 2. Lógica con Google Gemini (Petición directa segura)
         try {
-            const instruccion = `Eres Jarvis, el asistente de un desarrollador experto. 
-                                 Responde de forma breve (máximo 2 frases), técnica y educada. 
-                                 Usuario dice: ${textoUsuario}`;
+            const instruccion = `Eres Jarvis, el asistente de un desarrollador. 
+                                 Responde muy breve en español: ${textoUsuario}`;
 
             const result = await this.model.generateContent(instruccion);
             const response = await result.response;
@@ -41,7 +40,7 @@ export class JarvisHibrido {
             console.error("Error en Gemini:", error);
             return { 
                 fuente: "ERROR", 
-                respuesta: "Error de conexión con los servidores de Google. Verifique la API Key." 
+                respuesta: "Error de conexión con el núcleo de Google." 
             };
         }
     }
