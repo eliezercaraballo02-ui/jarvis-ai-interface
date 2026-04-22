@@ -148,40 +148,32 @@
       };
 
       // ===================== RECONOCIMIENTO VOZ =====================
-      let reconocimiento;
+           const hablar = (texto, animacionNombre = "Talking") => {
+        window.speechSynthesis.cancel();
 
-      function iniciarReconocimiento() {
-        const SpeechRecognition =
-          window.SpeechRecognition || window.webkitSpeechRecognition;
+        const msg = new SpeechSynthesisUtterance(texto);
+        msg.lang = "es-ES";
+        msg.pitch = 0.9;
+        msg.rate = 1.05;
 
-        if (!SpeechRecognition) {
-          alert("Tu navegador no soporta voz.");
-          return;
+        document.getElementById("display-text").innerText = texto;
+
+        if (mixer && animations[animacionNombre]) {
+          mixer.stopAllAction();
+          animations[animacionNombre].play();
         }
 
-        reconocimiento = new SpeechRecognition();
-        reconocimiento.lang = "es-ES";
-        reconocimiento.continuous = false;
-        reconocimiento.interimResults = false;
-
-        reconocimiento.onstart = () => {
-          hablar("Escuchando...", "Idle");
+        msg.onend = () => {
+          // Si la animación fue Death (apagarse), no queremos que vuelva a Idle inmediatamente
+          if (mixer && animations["Idle"] && animacionNombre !== "Death") {
+            mixer.stopAllAction();
+            animations["Idle"].play();
+          }
         };
 
-        reconocimiento.onresult = (event) => {
-          const texto = event.results[0][0].transcript;
-          document.getElementById("userInput").value = texto;
-          procesarMensaje();
-        };
+        window.speechSynthesis.speak(msg);
+      };
 
-        reconocimiento.onerror = (event) => {
-          hablar("No pude escucharte.", "No");
-        };
-
-        reconocimiento.start();
-      }
-
-      window.escuchar = iniciarReconocimiento;
 
       // ===================== RESPUESTA SIMPLE =====================
       function generarRespuestaInteligente(texto) {
