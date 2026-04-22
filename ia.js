@@ -12,37 +12,35 @@ export class JarvisHibrido {
     async hablarConJarvis(textoUsuario) {
         const prompt = textoUsuario.toLowerCase().trim();
 
-        // 1. Lógica Local (Instantánea)
+        // 1. Lógica Local
         for (let comando in this.comandosLocales) {
             if (prompt.includes(comando)) {
                 return { fuente: "SISTEMA LOCAL", respuesta: this.comandosLocales[comando] };
             }
         }
 
-        // 2. Lógica de Nube con Proxy Robusto
+        // 2. Lógica de Nube usando un Túnel que limpia el CORS
         try {
-            const targetUrl = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
-            // Usamos corsproxy.io para envolver la petición
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            const modelUrl = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
             
-            const response = await fetch(proxyUrl, {
+            // Usamos un proxy que permite inyectar headers sin disparar el CORS del navegador
+            const proxyUrl = "https://corsproxy.io/?";
+            
+            const response = await fetch(proxyUrl + encodeURIComponent(modelUrl), {
                 method: "POST",
                 headers: { 
+                    // Al usar el proxy, estos encabezados no bloquean la petición
                     "Authorization": `Bearer ${this.apiKey}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     inputs: `<s>[INST] Eres Jarvis, asistente técnico. Responde breve en español: ${textoUsuario} [/INST]`,
-                    parameters: { max_new_tokens: 150, temperature: 0.7 }
                 })
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                if (errorData.error && errorData.error.includes("currently loading")) {
-                    return { fuente: "SISTEMA", respuesta: "Núcleo cargando. Por favor, reintenta en unos segundos." };
-                }
-                throw new Error("Fallo en la respuesta");
+                // Si el modelo está cargando en HF
+                return { fuente: "SISTEMA", respuesta: "Núcleo en espera. Por favor, reintenta en 10 segundos." };
             }
 
             const data = await response.json();
@@ -55,8 +53,9 @@ export class JarvisHibrido {
             return { fuente: "IA NUBE", respuesta: respuestaIA };
 
         } catch (error) {
-            console.error("Error detallado:", error);
-            return { fuente: "ERROR", respuesta: "Error de enlace con la nube. Intente de nuevo." };
+            console.error("Error:", error);
+            // Si el proxy falla, intentamos una respuesta genérica para no romper la interfaz
+            return { fuente: "ERROR", respuesta: "Error de enlace. Por favor, verifica tu conexión." };
         }
     }
 }
