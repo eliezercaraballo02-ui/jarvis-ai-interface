@@ -1,14 +1,11 @@
 export class JarvisHibrido {
     constructor() {
-        // NOTA: Para producción, podrías usar variables de entorno, 
-        // pero para tu portafolio, este token servirá por ahora.
         this.apiKey = "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"; 
-        
         this.comandosLocales = {
             "saluda": "Hola, soy Jarvis. Sistemas en línea y listos para trabajar.",
             "baila": "Iniciando protocolos de entretenimiento... ¡Bailando!",
-            "quien eres": "Soy una interfaz de IA híbrida diseñada por un desarrollador experto en SQL y Web.",
-            "proyectos": "Actualmente tengo en mi base de datos: Sistema de Hoteles, Simuladores en Python y esta interfaz 3D."
+            "quien eres": "Soy una interfaz de IA híbrida diseñada por un desarrollador experto.",
+            "proyectos": "He trabajado en sistemas SQL, simuladores y esta interfaz 3D."
         };
     }
 
@@ -22,37 +19,44 @@ export class JarvisHibrido {
             }
         }
 
-        // 2. Lógica de Nube (IA Real)
+        // 2. Lógica de Nube con Proxy Robusto
         try {
-            const url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+            const targetUrl = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+            // Usamos corsproxy.io para envolver la petición
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             
-            const response = await fetch(url, {
+            const response = await fetch(proxyUrl, {
                 method: "POST",
                 headers: { 
                     "Authorization": `Bearer ${this.apiKey}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    inputs: `<s>[INST] Eres Jarvis, el asistente personal de un desarrollador. Responde de forma técnica y breve en español: ${textoUsuario} [/INST]`,
-                    parameters: { max_new_tokens: 120, temperature: 0.7 }
+                    inputs: `<s>[INST] Eres Jarvis, asistente técnico. Responde breve en español: ${textoUsuario} [/INST]`,
+                    parameters: { max_new_tokens: 150, temperature: 0.7 }
                 })
             });
 
-            const data = await response.json();
-
-            if (data.error) {
-                return { fuente: "SISTEMA", respuesta: "Núcleo en espera. Por favor, reintenta en 10 segundos." };
+            if (!response.ok) {
+                const errorData = await response.json();
+                if (errorData.error && errorData.error.includes("currently loading")) {
+                    return { fuente: "SISTEMA", respuesta: "Núcleo cargando. Por favor, reintenta en unos segundos." };
+                }
+                throw new Error("Fallo en la respuesta");
             }
 
+            const data = await response.json();
             let respuestaIA = data[0].generated_text;
-            const index = respuestaIA.indexOf("[/INST]");
-            if (index !== -1) respuestaIA = respuestaIA.substring(index + 7).trim();
+            
+            if (respuestaIA.includes("[/INST]")) {
+                respuestaIA = respuestaIA.split("[/INST]")[1].trim();
+            }
 
             return { fuente: "IA NUBE", respuesta: respuestaIA };
 
         } catch (error) {
-            console.error("Error de conexión:", error);
-            return { fuente: "ERROR", respuesta: "Error de enlace. Verifique su conexión a internet." };
+            console.error("Error detallado:", error);
+            return { fuente: "ERROR", respuesta: "Error de enlace con la nube. Intente de nuevo." };
         }
     }
 }
