@@ -1,7 +1,7 @@
 export class JarvisHibrido {
     constructor() {
         // Esta es la URL de tu nuevo servidor en Vercel
-        this.urlServidor = "https://jarvis-backend-eight.vercel.app/chat";
+        this.urlServidor = "https://jarvis-backend-kappa.vercel.app/chat";
         
         this.comandosLocales = {
             "saluda": "Sistemas en línea. Hola, soy Jarvis.",
