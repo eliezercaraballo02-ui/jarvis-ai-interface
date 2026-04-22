@@ -148,32 +148,60 @@
       };
 
       // ===================== RECONOCIMIENTO VOZ =====================
-           const hablar = (texto, animacionNombre = "Talking") => {
-        window.speechSynthesis.cancel();
+      let reconocimiento;
 
-        const msg = new SpeechSynthesisUtterance(texto);
-        msg.lang = "es-ES";
-        msg.pitch = 0.9;
-        msg.rate = 1.05;
+function iniciarReconocimiento() {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
 
-        document.getElementById("display-text").innerText = texto;
+  if (!SpeechRecognition) {
+    alert("Tu navegador no soporta reconocimiento de voz.");
+    return;
+  }
 
-        if (mixer && animations[animacionNombre]) {
-          mixer.stopAllAction();
-          animations[animacionNombre].play();
-        }
+  reconocimiento = new SpeechRecognition();
 
-        msg.onend = () => {
-          // Si la animación fue Death (apagarse), no queremos que vuelva a Idle inmediatamente
-          if (mixer && animations["Idle"] && animacionNombre !== "Death") {
-            mixer.stopAllAction();
-            animations["Idle"].play();
-          }
-        };
+  reconocimiento.lang = "es-ES";
+  reconocimiento.continuous = true;
+  reconocimiento.interimResults = false;
+  reconocimiento.maxAlternatives = 5;
 
-        window.speechSynthesis.speak(msg);
-      };
+  reconocimiento.onstart = () => {
+    console.log("🎤 Escuchando...");
+    hablar("Escuchando...", "Idle");
+  };
 
+  reconocimiento.onresult = (event) => {
+    let texto = event.results[event.results.length - 1][0].transcript;
+
+    texto = texto.trim().toLowerCase();
+
+    console.log("🟡 Detectado:", texto);
+
+    document.getElementById("userInput").value = texto;
+
+    procesarMensaje();
+  };
+
+  reconocimiento.onerror = (e) => {
+    console.log("Error voz:", e.error);
+  };
+
+  reconocimiento.onend = () => {
+    // 🔥 REINICIO AUTOMÁTICO (IMPORTANTE)
+    setTimeout(() => {
+      try {
+        reconocimiento.start();
+      } catch (e) {
+        console.log("Reinicio fallido:", e);
+      }
+    }, 600);
+  };
+
+  reconocimiento.start();
+}
+
+window.escuchar = iniciarReconocimiento;
 
       // ===================== RESPUESTA SIMPLE =====================
       function generarRespuestaInteligente(texto) {
