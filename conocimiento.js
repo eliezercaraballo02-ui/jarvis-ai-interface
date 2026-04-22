@@ -86,7 +86,7 @@ export const baseDeDatos = [
     {
         claves: [ "como te llamas", "mi nombre es", "yo soy", "mi nombre", "presentarme"],
         respuesta: function(nombre = "usuario") {
-            return `Hola ${nombre}. Soy Robotina, un prototipo de inteligencia artificial diseñado como asistente holográfico. Estoy listo para ayudarte con información, respuestas y acciones programadas.`;
+            return `Hola ${nombre}. Soy Robotca, un prototipo de inteligencia artificial diseñado como asistente holográfico. Estoy listo para ayudarte con información, respuestas y acciones programadas.`;
         },
         animacion: "Talking"
     },
@@ -101,8 +101,8 @@ export const baseDeDatos = [
         ],
         respuesta: () => responderAleatorio([
             "Sistema holográfico activo. Antes de comenzar, ¿cuál es tu nombre?",
-            "Hola, estoy en línea y listo para responder.",
-            "Saludos. ¿En qué puedo ayudarte hoy?",
+            "Hola, un gusto estar contigo. ¿Me puedes decir cómo te llamas?",
+            "Saludos. ¿En qué puedo ayudarte amigito?",
             "Conexión establecida. Dime cómo te ayudo."
         ]),
         animacion: "Wave"
