@@ -1,6 +1,6 @@
 export class JarvisHibrido {
     constructor() {
-        // Esta es la URL de tu nuevo servidor en Vercel
+        // Asegúrate de que esta URL sea la actual de tu proyecto Kappa
         this.urlServidor = "https://jarvis-backend-kappa.vercel.app/chat";
         
         this.comandosLocales = {
@@ -20,7 +20,7 @@ export class JarvisHibrido {
             }
         }
 
-        // 2. Lógica de Nube (Llamada a tu servidor en Vercel)
+        // 2. Lógica de Nube (Llamada a Vercel)
         try {
             const response = await fetch(this.urlServidor, {
                 method: "POST",
@@ -30,23 +30,29 @@ export class JarvisHibrido {
                 body: JSON.stringify({ prompt: textoUsuario })
             });
 
+            // VALIDACIÓN CRÍTICA: ¿Es realmente un JSON lo que viene?
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                console.error("El servidor no devolvió JSON, sino:", contentType);
+                throw new Error("El cerebro está offline o devolvió una página de error.");
+            }
+
             if (!response.ok) {
-                throw new Error("Error en la respuesta del servidor");
+                throw new Error(`Error ${response.status}: El servidor no responde correctamente.`);
             }
 
             const data = await response.json();
             
-            // Retornamos la respuesta que viene de tu backend
             return { 
                 fuente: "IA NUBE", 
-                respuesta: data.respuesta 
+                respuesta: data.respuesta || "Lo siento, no tengo una respuesta clara." 
             };
 
         } catch (error) {
-            console.error("Error de conexión:", error);
+            console.error("Detalles del fallo:", error);
             return { 
                 fuente: "ERROR", 
-                respuesta: "No pude conectar con mi cerebro en Vercel. Asegúrate de que el servidor esté activo." 
+                respuesta: "Señor, tenemos interferencias en la conexión. Verifique el servidor Kappa." 
             };
         }
     }
