@@ -1,46 +1,52 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 export class JarvisHibrido {
     constructor() {
-        // Sustituye con tu clave de Google AI Studio
-        this.apiKey = "AIzaSyDnbYAoTJ1n152b7_rIpb7TFI1WmkFlTDA"; 
-        this.genAI = new GoogleGenerativeAI(this.apiKey);
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+        // Esta es la URL de tu nuevo servidor en Vercel
+        this.urlServidor = "https://jarvis-backend-eight.vercel.app/chat";
+        
         this.comandosLocales = {
             "saluda": "Sistemas en línea. Hola, soy Jarvis.",
-            "baila": "Protocolo de baile activado.",
-            "quien eres": "Soy una interfaz de IA híbrida potenciada por Google Gemini.",
-            "proyectos": "He trabajado en sistemas SQL y esta interfaz 3D."
+            "baila": "Iniciando protocolos de baile.",
+            "quien eres": "Soy una interfaz de IA híbrida con backend en Vercel."
         };
     }
 
     async hablarConJarvis(textoUsuario) {
         const promptLimpio = textoUsuario.toLowerCase().trim();
 
-        // 1. Lógica Local
+        // 1. Lógica Local (Inmediata)
         for (let comando in this.comandosLocales) {
             if (promptLimpio.includes(comando)) {
                 return { fuente: "LOCAL", respuesta: this.comandosLocales[comando] };
             }
         }
 
-        // 2. Lógica con Google Gemini (Petición directa segura)
+        // 2. Lógica de Nube (Llamada a tu servidor en Vercel)
         try {
-            const instruccion = `Eres Jarvis, el asistente de un desarrollador. 
-                                 Responde muy breve en español: ${textoUsuario}`;
+            const response = await fetch(this.urlServidor, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ prompt: textoUsuario })
+            });
 
-            const result = await this.model.generateContent(instruccion);
-            const response = await result.response;
-            const text = response.text();
+            if (!response.ok) {
+                throw new Error("Error en la respuesta del servidor");
+            }
 
-            return { fuente: "GEMINI NUBE", respuesta: text.trim() };
+            const data = await response.json();
+            
+            // Retornamos la respuesta que viene de tu backend
+            return { 
+                fuente: "IA NUBE", 
+                respuesta: data.respuesta 
+            };
 
         } catch (error) {
-            console.error("Error en Gemini:", error);
+            console.error("Error de conexión:", error);
             return { 
                 fuente: "ERROR", 
-                respuesta: "Error de conexión con el núcleo de Google." 
+                respuesta: "No pude conectar con mi cerebro en Vercel. Asegúrate de que el servidor esté activo." 
             };
         }
     }
