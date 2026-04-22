@@ -4,47 +4,46 @@ export class JarvisHibrido {
         this.model = "mistralai/Mistral-7B-Instruct-v0.2";
         
         this.comandosLocales = {
-            "saluda": "Hola, soy Jarvis. Sistemas en línea.",
-            "baila": "Iniciando rutina de baile...",
-            "quien eres": "Soy una interfaz de IA híbrida diseñada para tu portafolio."
+            "saluda": "Sistemas en línea. Hola, soy Jarvis.",
+            "baila": "Iniciando protocolos de baile.",
+            "quien eres": "Soy una IA híbrida diseñada para tu portafolio."
         };
     }
 
     async hablarConJarvis(textoUsuario) {
         const prompt = textoUsuario.toLowerCase().trim();
 
-        // 1. Respuesta Local
         for (let comando in this.comandosLocales) {
             if (prompt.includes(comando)) return { fuente: "LOCAL", respuesta: this.comandosLocales[comando] };
         }
 
-        // 2. Respuesta Nube (Petición Directa sin librerías externas)
         try {
-            const response = await fetch(`https://api-inference.huggingface.co/models/${this.model}`, {
+            // USAMOS UN PROXY QUE AÑADE LOS HEADERS DE CORS AUTOMÁTICAMENTE
+            const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+            const targetUrl = `https://api-inference.huggingface.co/models/${this.model}`;
+            
+            const response = await fetch(proxyUrl + targetUrl, {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${this.apiKey}`,
                     "Content-Type": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
                 },
                 body: JSON.stringify({
                     inputs: `[INST] Eres Jarvis, responde corto en español: ${textoUsuario} [/INST]`,
-                    parameters: { max_new_tokens: 100, return_full_text: false }
+                    parameters: { max_new_tokens: 100 }
                 })
             });
 
+            if (!response.ok) return { fuente: "SISTEMA", respuesta: "El núcleo está saturado. Reintenta en breve." };
+
             const data = await response.json();
-
-            if (data.error) {
-                if (data.error.includes("loading")) return { fuente: "SISTEMA", respuesta: "Núcleo cargando... intenta en 10 segundos." };
-                return { fuente: "ERROR", respuesta: "Error en el núcleo de IA." };
-            }
-
-            let textoIA = data[0].generated_text || data.generated_text;
-            return { fuente: "IA NUBE", respuesta: textoIA.trim() };
+            const respuestaIA = Array.isArray(data) ? data[0].generated_text : data.generated_text;
+            return { fuente: "IA NUBE", respuesta: respuestaIA.split("[/INST]")[1]?.trim() || respuestaIA };
 
         } catch (error) {
-            console.error("Error de red:", error);
-            return { fuente: "ERROR", respuesta: "Sin conexión con la nube." };
+            console.error("Error de CORS:", error);
+            return { fuente: "ERROR", respuesta: "Error de enlace. Activa el acceso al proxy si es necesario." };
         }
     }
 }
