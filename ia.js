@@ -1,50 +1,48 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 export class JarvisHibrido {
     constructor() {
-        this.apiKey = "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";
-        this.model = "mistralai/Mistral-7B-Instruct-v0.2";
-        
+        // PEGA AQUÍ TU API KEY DE GOOGLE
+        this.apiKey = "AIzaSyDnbYAoTJ1n152b7_rIpb7TFI1WmkFlTDA"; 
+        this.genAI = new GoogleGenerativeAI(this.apiKey);
+        this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
         this.comandosLocales = {
             "saluda": "Sistemas en línea. Hola, soy Jarvis.",
-            "baila": "Iniciando protocolos de baile.",
-            "quien eres": "Soy una interfaz de IA híbrida diseñada por un desarrollador web."
+            "baila": "Iniciando protocolos de baile. ¡Observe!",
+            "quien eres": "Soy una interfaz de IA híbrida potenciada por Google Gemini.",
+            "proyectos": "He desarrollado sistemas SQL, simuladores y esta interfaz 3D."
         };
     }
 
     async hablarConJarvis(textoUsuario) {
-        const prompt = textoUsuario.toLowerCase().trim();
+        const promptLimpio = textoUsuario.toLowerCase().trim();
 
+        // 1. Lógica Local (Instantánea)
         for (let comando in this.comandosLocales) {
-            if (prompt.includes(comando)) return { fuente: "LOCAL", respuesta: this.comandosLocales[comando] };
+            if (promptLimpio.includes(comando)) {
+                return { fuente: "LOCAL", respuesta: this.comandosLocales[comando] };
+            }
         }
 
+        // 2. Lógica de Nube con Google Gemini
         try {
-            // USAMOS UN PROXY DIFERENTE Y MÁS SIMPLE
-            const targetUrl = `https://api-inference.huggingface.co/models/${this.model}`;
-            const proxyUrl = "https://api.allorigins.win/get?url=";
-            
-            const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
-                method: "GET" // AllOrigins funciona mejor con GET para saltar el preflight
-            });
+            const instruccion = `Eres Jarvis, el asistente de un desarrollador experto. 
+                                 Responde de forma breve (máximo 2 frases), técnica y educada. 
+                                 Usuario dice: ${textoUsuario}`;
 
-            // Nota: Con este proxy, la respuesta viene envuelta en un objeto 'contents'
-            const dataWrap = await response.json();
-            
-            // Ahora enviamos la verdadera petición POST (Esto es lo que hace el híbrido)
-            // Si el proxy AllOrigins te da problemas, lo mejor será cambiar a Gemini como sugeriste.
-            
-            // --- INTENTO DE PETICIÓN DIRECTA SIMPLIFICADA (PLAN B) ---
-            const directRes = await fetch(targetUrl, {
-                headers: { "Authorization": `Bearer ${this.apiKey}` },
-                method: "POST",
-                body: JSON.stringify({ inputs: textoUsuario })
-            });
-            
-            const data = await directRes.json();
-            return { fuente: "IA NUBE", respuesta: data[0].generated_text };
+            const result = await this.model.generateContent(instruccion);
+            const response = await result.response;
+            const text = response.text();
+
+            return { fuente: "GEMINI NUBE", respuesta: text.trim() };
 
         } catch (error) {
-            console.error("Error:", error);
-            return { fuente: "ERROR", respuesta: "Error de enlace. ¿Probamos con Gemini de Google?" };
+            console.error("Error en Gemini:", error);
+            return { 
+                fuente: "ERROR", 
+                respuesta: "Error de conexión con los servidores de Google. Verifique la API Key." 
+            };
         }
     }
 }
