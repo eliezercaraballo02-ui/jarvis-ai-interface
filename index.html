@@ -1,7 +1,15 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+    <meta http-equiv="Content-Security-Policy" content="
+default-src * data: blob: 'unsafe-inline' 'unsafe-eval';
+img-src * data: blob:;
+script-src * 'unsafe-inline' 'unsafe-eval';
+style-src * 'unsafe-inline';
+connect-src *;
+worker-src * blob:;
+">
+
 
     
     <title>Robot IA Real - Jarvis Local</title>
@@ -267,7 +275,9 @@
       scene.add(light);
 
       let mixer, animations = {};
-    const loader = new GLTFLoader();
+   
+
+const loader = new GLTFLoader();
 
 loader.load(
   "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
@@ -278,17 +288,19 @@ loader.load(
     scene.add(model);
 
     mixer = new THREE.AnimationMixer(model);
+
     gltf.animations.forEach((clip) => {
       animations[clip.name] = mixer.clipAction(clip);
     });
 
-    if (animations["Idle"]) animations["Idle"].play();
+    animations["Idle"]?.play();
   },
   undefined,
   (error) => {
     console.error("Error cargando modelo:", error);
   }
 );
+
 ;
 
       camera.position.z = 4;
