@@ -1,7 +1,7 @@
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-   
     <title>Robot IA Real - Jarvis Local</title>
 
     <style>
@@ -79,24 +79,20 @@
         <button onclick="escuchar()">🎤</button>
       </div>
     </div>
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.136.0/build/three.module.js",
-      "three/examples/jsm/loaders/GLTFLoader": "https://unpkg.com/three@0.136.0/examples/jsm/loaders/GLTFLoader.js",
-      "@google/generative-ai": "https://esm.run/@google/generative-ai"
-    }
-  }
-</script>
 
- <script type="module">
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.136.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader": "https://unpkg.com/three@0.136.0/examples/jsm/loaders/GLTFLoader.js"
+        }
+      }
+    </script>
+
+    <script type="module">
       import * as THREE from "three";
       import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
       import { baseDeDatos } from "./conocimiento.js";
-      import { JarvisHibrido } from "./ia.js"; // Importamos la IA
-
-      // Inicializamos el motor de la IA
-      const jarvisIA = new JarvisHibrido();
 
       // ===================== MEMORIA =====================
       let memoria = JSON.parse(localStorage.getItem("memoriaJarvis")) || {
@@ -141,6 +137,7 @@
         }
 
         msg.onend = () => {
+          // Si la animación fue Death (apagarse), no queremos que vuelva a Idle inmediatamente
           if (mixer && animations["Idle"] && animacionNombre !== "Death") {
             mixer.stopAllAction();
             animations["Idle"].play();
@@ -186,8 +183,19 @@
 
       window.escuchar = iniciarReconocimiento;
 
-      // ===================== PROCESAR MENSAJE (HÍBRIDO) =====================
-      const procesarMensaje = async () => {
+      // ===================== RESPUESTA SIMPLE =====================
+      function generarRespuestaInteligente(texto) {
+        if (texto.includes("hora"))
+          return `Son las ${new Date().toLocaleTimeString()}`;
+        if (texto.includes("fecha"))
+          return `Hoy es ${new Date().toLocaleDateString()}`;
+        if (texto.includes("gracias")) return "Siempre a tu servicio.";
+
+        return "No tengo información sobre eso aún.";
+      }
+
+      // ===================== PROCESAR MENSAJE =====================
+      const procesarMensaje = () => {
         const input = document.getElementById("userInput");
         const textoOriginal = input.value.trim();
         const texto = textoOriginal.toLowerCase();
@@ -195,39 +203,34 @@
         if (!texto) return;
         input.value = "";
 
-        // 1. Verificar si el usuario se está presentando
-        const nombre = extraerNombre(texto);
-        if (nombre) {
-          hablar(`Hola ${nombre}. Es un placer tenerte aquí. ¿En qué puedo ayudarte?`, "Wave");
-          return;
-        }
-
         let respuesta = "";
         let animacion = "Talking";
 
-        // 2. Buscar en Conocimiento.js (Base de datos local)
+        const nombre = extraerNombre(texto);
+
+        if (nombre) {
+          hablar(
+            `Hola ${nombre}. Es un placer tenerte aquí. ¿En qué puedo ayudarte?`, "Wave"
+          );
+          return;
+        }
+
         for (let item of baseDeDatos) {
           if (item.claves.some((clave) => texto.includes(clave))) {
-            respuesta = (typeof item.respuesta === "function") 
-              ? item.respuesta(memoria.nombre || "usuario") 
-              : item.respuesta;
+            if (typeof item.respuesta === "function") {
+              respuesta = item.respuesta(memoria.nombre || "usuario");
+            } else {
+              respuesta = item.respuesta;
+            }
+
             animacion = item.animacion || "Talking";
             break;
           }
         }
 
-        // 3. Si no hay respuesta local, consultar a la IA en la nube
         if (!respuesta) {
-          document.getElementById("display-text").innerText = "Jarvis está pensando...";
-          
-          try {
-            const resultadoIA = await jarvisIA.hablarConJarvis(textoOriginal);
-            respuesta = resultadoIA.respuesta;
-            animacion = (resultadoIA.fuente === "IA NUBE") ? "Talking" : "No";
-          } catch (e) {
-            respuesta = "Se ha producido un error en mi núcleo de procesamiento.";
-            animacion = "No";
-          }
+          respuesta = generarRespuestaInteligente(texto);
+          animacion = "Talking";
         }
 
         hablar(respuesta, animacion);
@@ -241,59 +244,142 @@
         if (e.key === "Enter") procesarMensaje();
       };
 
+      // EVENTOS DE TECLADO PARA ANIMACIONES MANUALES
       window.addEventListener('keydown', (e) => {
+        // Evitar que el robot baile si estás escribiendo dentro del input
         if (document.activeElement === inputElement) return;
+
         if (!mixer) return;
 
         if (e.key === '1') { mixer.stopAllAction(); animations['Wave'].play(); }
         if (e.key === '2') { mixer.stopAllAction(); animations['Dance'].play(); }
         if (e.key === '3') { mixer.stopAllAction(); animations['Walking'].play(); }
-        if (e.key === '4') { mixer.stopAllAction(); animations['Death'].play(); }
+        if (e.key === '4') { mixer.stopAllAction(); animations['Death'].play(); } // Triste/Apagado
       });
 
       // ===================== THREE.JS =====================
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000,
+      );
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
 
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
       scene.add(new THREE.AmbientLight(0xffffff, 1));
+
       const light = new THREE.PointLight(0x00ffff, 2);
       light.position.set(5, 5, 5);
       scene.add(light);
 
-      let mixer, animations = {};
-   
+      let mixer,
+        animations = {};
 
-const loader = new GLTFLoader();
+      const loader = new GLTFLoader();
 
-loader.load(
-  "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
-  (gltf) => {
-    const model = gltf.scene;
-    model.scale.set(0.55, 0.5, 0.5);
-    model.position.y = -1;
-    scene.add(model);
+    // --- CARGA Y CONFIGURACIÓN DEL MODELO (COLORES VENEZUELA) ---
+      loader.load(
+        "https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
+        (gltf) => {
+          const model = gltf.scene;
 
-    mixer = new THREE.AnimationMixer(model);
+          // Recorremos todas las piezas del robot para pintarlas
+          model.traverse((child) => {
+            if (child.isMesh) {
+              const name = child.name.toLowerCase();
 
-    gltf.animations.forEach((clip) => {
-      animations[clip.name] = mixer.clipAction(clip);
-    });
+              // Definimos los materiales tricolor
+              const matAzul = new THREE.MeshStandardMaterial({ color: 0x0038A8, metalness: 0.6, roughness: 0.4 });
+              const matRojo = new THREE.MeshStandardMaterial({ color: 0xCE1126, metalness: 0.6, roughness: 0.4 });
 
-    animations["Idle"]?.play();
-  },
-  undefined,
-  (error) => {
-    console.error("Error cargando modelo:", error);
-  }
-);
+              // 1. CÓRNEA: Mantener la cabeza original (incluye cuello, ojos, etc.)
+              if (name.includes("head") || name.includes("neck") || name.includes("eye")) {
+                // No hacemos nada, se queda con su material blanco/metálico original
+                return;
+              }
 
-;
+              // 2. PIERNAS: Rojas, respetando articulaciones blancas
+              if (name.includes("leg")) {
+                // Si la pieza NO es una articulación ('joint') o unión ('link'), la pintamos de rojo
+                if (!name.includes("joint") && !name.includes("link")) {
+                  child.material = matRojo;
+                }
+                // Si SÍ es articulación, se queda blanca original
+              } 
+              
+              // 3. BRAZOS Y TORSO: Azules, respetando articulaciones blancas
+              else if (name.includes("arm") || name.includes("hand") || name.includes("torso") || name.includes("body")) {
+                // Si la pieza NO es articulación o unión, la pintamos de azul
+                if (!name.includes("joint") && !name.includes("link")) {
+                  child.material = matAzul;
+                }
+                // Si SÍ es articulación (ej: codo, muñeca, dedos), se queda blanca
+              }
+            }
+          });
+
+          // --- AGREGAR ESTRELLAS GRANDES AL PECHO ---
+          // Creamos una textura canvas para las estrellas
+          const canvasStar = document.createElement('canvas');
+          canvasStar.width = 512; canvasStar.height = 256;
+          const ctxStar = canvasStar.getContext('2d');
+          
+          ctxStar.fillStyle = 'white';
+          // Parámetros del arco: centro x, centro y, radio
+          const centerX = 256, centerY = 190, arcoRadius = 130;
+          
+          // Dibujamos 8 estrellas en arco
+          for (let i = 0; i < 8; i++) {
+            // Ángulo para un semicírculo superior
+            const angle = Math.PI + (i * Math.PI / 7); 
+            const x = centerX + Math.cos(angle) * arcoRadius;
+            const y = centerY + Math.sin(angle) * arcoRadius;
+            
+            // Función para dibujar una forma de estrella grande (radio 22)
+            let rot = Math.PI / 2 * 3, step = Math.PI / 5;
+            ctxStar.beginPath(); ctxStar.moveTo(x, y - 22);
+            for (let j = 0; j < 5; j++) {
+              ctxStar.lineTo(x + Math.cos(rot) * 22, y + Math.sin(rot) * 22); rot += step;
+              ctxStar.lineTo(x + Math.cos(rot) * 10, y + Math.sin(rot) * 10); rot += step; // Interior
+            }
+            ctxStar.lineTo(x, y - 22); ctxStar.closePath(); ctxStar.fill();
+          }
+
+          const starTexture = new THREE.CanvasTexture(canvasStar);
+          // Panel para colocar sobre el pecho (un poco más grande: 0.5 x 0.25)
+          const starGeometry = new THREE.PlaneGeometry(0.5, 0.25);
+          const starMaterial = new THREE.MeshBasicMaterial({ map: starTexture, transparent: true, depthTest: false });
+          const starsPanel = new THREE.Mesh(starGeometry, starMaterial);
+          
+          // Posición exacta sobre el torso (x, y, z) y rotación leve
+          starsPanel.position.set(0, 2.17, 0.11); 
+          starsPanel.rotation.x = -0.15;
+          
+          // Importante: añadir el panel al modelo para que se mueva con él
+          model.add(starsPanel);
+
+          model.scale.set(0.55, 0.5, 0.5);
+          model.position.y = -1;
+          scene.add(model);
+
+          mixer = new THREE.AnimationMixer(model);
+          gltf.animations.forEach((clip) => {
+            animations[clip.name] = mixer.clipAction(clip);
+          });
+          animations["Idle"].play();
+        }
+      );
 
       camera.position.z = 4;
+
       const clock = new THREE.Clock();
 
       function animate() {
@@ -301,13 +387,8 @@ loader.load(
         if (mixer) mixer.update(clock.getDelta());
         renderer.render(scene, camera);
       }
-      animate();
 
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
+      animate();
     </script>
   </body>
 </html>
